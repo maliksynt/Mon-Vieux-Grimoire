@@ -1,9 +1,9 @@
 const mongoose = require("mongoose");
 const express = require("express");
-const app = express();
 const userRoute = require("./router/userRoute");
 const globalRoute = require("./router/globalRoute");
 
+const app = express();
 app.use(express.json());
 
 mongoose
