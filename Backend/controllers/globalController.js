@@ -1,4 +1,5 @@
 const Book = require("../models/bookModel");
+const fs = require("fs");
 
 // Renvoie un tableau de tous les livres de la base de données.
 exports.getAllBooks = (req, res, next) => {
@@ -15,52 +16,144 @@ exports.getAllBooks = (req, res, next) => {
 exports.getOneBook = (req, res, next) => {
   Book.findOne({ _id: req.params.id })
     .then((book) => {
-      console.log(book);
-      res
-        .status(200)
-        .json(book)
-        .catch((error) => {
-          res.status(404).json({ error });
-        });
+      res.status(200).json(book);
     })
     .catch((error) => {
-      res.status(500).json({ error });
+      res.status(404).json({ error });
     });
 };
 
-// Capture et enregistre l'image, analyse le livre transformé en chaîne de caractères, et l'enregistre dans la base de données en définissant correctement son ImageUrl.
-
+// Crée un livre dans la base de données
 exports.createBook = (req, res, next) => {
-  // console.log(req.auth.userId);
-  console.log("body", req.body);
+  const bookObject = JSON.parse(req.body.book);
+  delete bookObject._id;
   const book = new Book({
-    title: "Symphony No. 5 in C minor, Op. 67",
-    author: "Ludwid van Beethoven",
-    year: 1808,
-    genre: "Symphony",
-    imageUrl:
-      "https://cdn.pixabay.com/photo/2024/01/08/15/54/defile-8495836_1280.jpg",
-    rating: {
-      userId: "userId",
-      rating: 4,
-    },
-    averageRating: 4,
+    ...bookObject,
+    imageUrl: `${req.protocol}://${req.get("host")}/images/${
+      req.file.filename
+    }`,
   });
   book
     .save()
-    .then(() => res.status(201).json({ message: "Book created" }))
+    .then(() => res.status(201).json({ message: "Objet enregistré !" }))
     .catch((error) => {
+      console.log(error);
       res.status(400).json({ error });
     });
 };
-// Renvoie un tableau des 3 livres de la base de données ayant la meilleure note moyenne.
-exports.getBestBooks = (req, res, next) => {};
-
-// Met à jour le livre avec l'_id fourni. Si une image est téléchargée, elle est capturée, et l’ImageUrl du livre est mise à jour. Si aucun fichier n'est fourni, les informations sur le livre se trouvent directement dans le corps de la requête (req.body.title, req.body.author, etc.). Si un fichier est fourni, le livre transformé en chaîne de caractères se trouve dans req.body.book. Notez que le corps de la demande initiale est vide ; lorsque Multer est ajouté, il renvoie une chaîne du corps de la demande basée sur les données soumises avec le fichier.
-exports.modifyBook = (req, res, next) => {};
 
 // Supprime le livre avec l'_id fourni ainsi que l’image associée.
-exports.deleteBook = (req, res, next) => {};
+exports.deleteBook = (req, res, next) => {
+  Book.findOne({ _id: req.params.id })
+    .then((book) => {
+      if (!book) {
+        return res.status(404).json({ message: "Objet non trouvé !" });
+      }
+      if (book.userId !== req.auth.userId) {
+        return res.status(400).json({ message: "Unauthorized request" });
+      } else {
+        const filename = book.imageUrl.split("/images/")[1];
+        fs.unlink(`images/${filename}`, () => {
+          Book.deleteOne({ _id: req.params.id })
+            .then(() => res.status(200).json({ message: "Objet supprimé !" }))
+            .catch((error) => res.status(400).json({ error }));
+        });
+      }
+    })
+    .catch((error) => res.status(500).json({ error }));
+};
 
-// Définit la note pour le user ID fourni. La note doit être comprise entre 0 et 5. L'ID de l'utilisateur et la note doivent être ajoutés au tableau "rating" afin de ne pas laisser un utilisateur noter deux fois le même livre. Il n’est pas possible de modifier une note. La note moyenne "averageRating" doit être tenue à jour, et le livre renvoyé en réponse de la requête
-exports.rateBook = (req, res, next) => {};
+// Mettre un jour un livre déjà présent dans la base de données.
+exports.modifyBook = (req, res, next) => {
+  if (!req.params.id) {
+    return res.status(400).json({ error: "L'ID du livre est manquant." });
+  }
+
+  Book.findOne({ _id: req.params.id }).then(() => {
+    const bookObject = req.file
+      ? {
+          ...JSON.parse(req.body.book),
+          imageUrl: `${req.protocol}://${req.get("host")}/images/${
+            req.file.filename
+          }`,
+        }
+      : { ...req.body };
+    delete bookObject._id;
+    Book.findOne({ _id: req.params.id })
+      .then((book) => {
+        if (!book) {
+          return res.status(404).json({ message: "Objet non trouvé " });
+        }
+        if (book.userId !== req.auth.userId) {
+          return res.status(400).json({ message: "Unauthorized request" });
+        } else {
+          const filename = book.imageUrl.split("/images/")[1];
+          fs.unlink(`images/${filename}`, () => {
+            Book.updateOne(
+              { _id: req.params.id },
+              { ...bookObject, id: req.params.id }
+            )
+              .then(
+                res.status(200).json({ message: "Livre modifié avec succès !" })
+              )
+              .catch((error) => res.status(400).json({ error }));
+          });
+        }
+      })
+      .catch((error) => res.status(400).json({ error }));
+  });
+};
+
+// Attribue une note à un livre que l'on ne possède pas et calcule ma moyenne d'étoiles de ce livre.
+exports.rateBook = (req, res, next) => {
+  const userId = req.body.userId;
+  const grade = req.body.rating;
+  if (grade < 0 || grade > 5) {
+    return res
+      .status(400)
+      .json({ message: "La note doit être comprise entre 0 et 5." });
+  }
+
+  Book.findOne({ _id: req.params.id })
+    .then((book) => {
+      if (!book) {
+        return res.status(400).json({ message: "Livre non trouvé! " });
+      }
+      if (book.userId === req.auth.userId) {
+        res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const hasAlreadyRated = book.ratings.some(
+        (rating) => rating.userId.toString() === userId
+      );
+      if (hasAlreadyRated) {
+        return res
+          .status(400)
+          .json({ message: "L'utilisateur a déjà noté ce livre" });
+      }
+
+      book.ratings.push({ userId, grade });
+      const totalGrade = book.ratings.reduce(
+        (accumulator, currentValue) => accumulator + currentValue.grade,
+        0
+      );
+      book.averageRating = totalGrade / book.ratings.length;
+
+      book
+        .save()
+        .then(() => res.status(200).json(book))
+        .catch((error) => res.status(400).json({ error }));
+    })
+    .catch((error) => res.status(400).json({ error }));
+};
+
+// Renvoie un tableau des 3 livres de la base de données ayant la meilleure note moyenne.
+exports.getBestBooks = (req, res, next) => {
+  Book.find()
+    .sort({ averageRating: -1 })
+    .limit(3)
+    .then((book) => {
+      res.status(200).json(book);
+    })
+    .catch((error) => res.status(400).json({ error }));
+};

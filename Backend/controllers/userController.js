@@ -4,7 +4,6 @@ const jwt = require("jsonwebtoken");
 
 // Hachage du mot de passe de l'utilisateur, ajout de l'utilisateur à la base de données.
 exports.signup = (req, res, next) => {
-  console.log(req.body);
   bcrypt
     .hash(req.body.password, 10)
     .then((hash) => {
@@ -24,8 +23,6 @@ exports.signup = (req, res, next) => {
 
 //  Vérification des informations d'identification de l'utilisateur ; renvoie l’_id de l'utilisateur depuis la base de données et un token web JSON signé (contenant également l'_id de l'utilisateur).
 exports.login = (req, res, next) => {
-  console.log("Login body : ", req.body);
-
   User.findOne({ email: req.body.email })
     .then((user) => {
       if (user === null) {
