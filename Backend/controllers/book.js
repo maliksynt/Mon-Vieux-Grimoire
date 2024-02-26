@@ -2,7 +2,7 @@ const Book = require("../models/bookModel");
 const fs = require("fs");
 
 // Récupère et renvoie tous les livres de la base de données.
-exports.getAllBooks = (req, res, next) => {
+exports.getAllBook = (req, res, next) => {
   Book.find()
     .then((books) => {
       // Envoie tous les livres trouvés avec un statut 200
@@ -58,7 +58,7 @@ exports.createBook = (req, res, next) => {
 };
 
 // Supprime le livre avec l'_id fourni ainsi que l’image associée.
-exports.deleteBook = (req, res, next) => {
+exports.deleteOneBook = (req, res, next) => {
   Book.findOne({ _id: req.params.id })
     .then((book) => {
       if (!book) {
@@ -88,7 +88,7 @@ exports.deleteBook = (req, res, next) => {
 };
 
 // Mettre à jour un livre déjà présent dans la base de données.
-exports.modifyBook = (req, res, next) => {
+exports.modifyOneBook = (req, res, next) => {
   if (!req.params.id) {
     // Vérifie si l'ID du livre est fourni dans la requête.
     return res.status(400).json({ error: "L'ID du livre est manquant." });
@@ -156,7 +156,7 @@ exports.modifyBook = (req, res, next) => {
 };
 
 // Attribue une note à un livre que l'on ne possède pas et calcule la moyenne d'étoiles de ce livre.
-exports.rateBook = (req, res, next) => {
+exports.rateOneBook = (req, res, next) => {
   const userId = req.body.userId;
   const grade = req.body.rating;
   // Vérifie que la note est comprise entre 0 et 5.
@@ -207,7 +207,7 @@ exports.rateBook = (req, res, next) => {
 };
 
 // Renvoie un tableau des 3 livres de la base de données ayant la meilleure note moyenne.
-exports.getBestBooks = (req, res, next) => {
+exports.bestRatings = (req, res, next) => {
   Book.find()
     .sort({ averageRating: -1 }) // Trie les livres par note moyenne décroissante.
     .limit(3) // Limite le résultat aux 3 meilleurs livres.

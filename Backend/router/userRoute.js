@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const userController = require("../controllers/userController");
+const userController = require("../controllers/user");
 
 // Définit les routes pour l'inscription et la connexion des utilisateurs.
 router.post("/signup", userController.signup);
