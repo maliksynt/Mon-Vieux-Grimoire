@@ -1,4 +1,23 @@
 {
+  "builds": [
+    {
+      "src": "Backend/package.json",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["**/*.js"],
+        "installCommand": "npm install",
+        "buildCommand": "npm install nodemon -g && nodemon Backend/server.js"
+      }
+    },
+    {
+      "src": "Frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build",
+        "buildCommand": "npm install && npm run build"
+      }
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
